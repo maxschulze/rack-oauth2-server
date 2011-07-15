@@ -40,9 +40,12 @@ module Rack
         end
  
        	def database
-      		raise 'No database Configured. You must configure it using Server.database = MongoDB::Connection.new()[db_name] ' unless @database
-      		@database
- 	 			end	
+          unless @database
+            raise 'No database Configured. You must configure it using' + 
+                  'Rack::OAuth2::Server.database = Mongo::Connection.new()[db_name]'
+          else
+            @database
+          end	
       end
  
     end
