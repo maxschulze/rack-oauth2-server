@@ -27,13 +27,15 @@ support a different database engine, send us a pull request.
 === Step 2: Use The Server
 
 For Rails 2.3/3.0, Rack::OAuth2::Server automatically adds itself as middleware
-when required, but you do need to configure it from within
-+config/environment.rb+ (or one of the specific environment files). For example:
+when required, but you do need to configure it.
+
+==== Rails 2
+
+Edit +config/environment.rb+ (or one of the specific environment files). For example:
 
   Rails::Initializer.run do |config|
     . . .
     config.after_initialize do
-      config.oauth.database = Mongo::Connection.new["my_db"]
       config.oauth.authenticator = lambda do |username, password|
         user = User.find(username)
         user if user && user.authenticated?(password)
@@ -41,10 +43,46 @@ when required, but you do need to configure it from within
     end
   end
 
+Also put another line at the very end of your +environment.rb+
+
+  Rack::OAuth2::Server.database = Mongo::Connection.new()['my_db']
+
+==== Rails 3
+
+Create a new initializer file in +config/initializers/rack_oauth_server.rb+.
+You can then put all the Rack OAuth2 Server related configuration into that initializer, e.g.:
+
+  require "rack/oauth2/server/railtie"
+  require "rack/oauth2/server/admin"
+
+  # configure rack-oauth2-server
+  # Don't forget to change YourApplication with the name of your application constant
+  # see config/application.rb for your application name.
+  YourApplication::Application.configure do
+    config.after_initialize do
+      # Example OAuth authenticator config using devise.
+      config.oauth.authenticator = lambda do |email, password|
+        user = User.find_for_database_authentication(:email => email)
+        user if user && user.valid_password?(password)
+      end
+    end
+  end
+
+  Rack::OAuth2::Server.database = Mongo::Connection.new()['oauth2_server']
+
+  # Optional: Configure OAuth Web Admin
+  Rack::OAuth2::Server::Admin.set :client_id, "client"
+  Rack::OAuth2::Server::Admin.set :client_secret, "secret"
+  Rack::OAuth2::Server::Admin.set :scope, %w{read write oauth-admin}
+
+==== Sinatra / Padrino
+
 For Sinatra and Padrino, first require +rack/oauth2/sinatra+ and register
 Rack::OAuth2::Sinatra into your application. For example:
 
   require "rack/oauth2/sinatra"
+
+  Rack::OAuth2::Server.database = Mongo::Connection.new()['my_db']
 
   class MyApp < Sinatra::Base
     register Rack::OAuth2::Sinatra
@@ -245,7 +283,7 @@ In Rails, it would look something like this:
     def set_current_user
       @current_user = User.find(oauth.identity) if oauth.authenticated?
     end
-    
+
   end
 
 In Sinatra/Padrino, it would look something like this:
@@ -425,7 +463,7 @@ You can set the following options:
   development mode).
 - +scope+ -- Common scope shown and added by default to new clients (array of
   names, e.g. ["read", "write"]).
- 
+
 === Web Admin API
 
 The OAuth Web admin is a single-page client application that operates by
@@ -525,7 +563,7 @@ two use to control the authorization flow:
                 | authenticate client |    | oauth.authorization |
                 -----------------------    -----------------------
 
-                                    Your code 
+                                    Your code
      --------------------     ----------------------    -----------------------
      | Authenticate user |    | Ask user to grant/ |    | Set response        |
   -> |                   | -> | deny client access | -> |                     | ->
@@ -534,8 +572,8 @@ two use to control the authorization flow:
      --------------------     ----------------------    -----------------------
 
       Rack::OAuth2::Server
-     -----------------------    
-     | Create access grant |    
+     -----------------------
+     | Create access grant |
   -> | or access token for | -> Redirect back
      | oauth.identity      |    to client app
      -----------------------
@@ -599,6 +637,6 @@ access tokens can also expire, but we don't support expiration at the moment)
 Rack::OAuth2::Server was written to provide authorization/authentication for
 the new Flowtown API[http://developer.flowtown.com]. Thanks to
 Flowtown[http://flowtown.com] for making it happen and allowing it to be open
-sourced. 
+sourced.
 
 Rack::OAuth2::Server is available under the MIT license.
